@@ -10,8 +10,10 @@ set "PORTA_DB=3345"
 set "USUARIO_DB=root"
 set "SENHA_DB=masterkey"
 
-:: Banco de origem e nome que sera usado na restauracao
-set "NOME_BANCO=basesgmaster09102026164338"
+:: Prefixo do banco que o script vai procurar no servidor
+set "PREFIXO_BANCO=basesgmaster"
+
+:: Nome padrao para o banco restaurado
 set "NOVO_BANCO=basesgmaster_restaurado"
 
 :: --- ELEVACAO DE PRIVILEGIOS ---
@@ -21,14 +23,46 @@ if errorlevel 1 (
     exit /b
 )
 
+:: =======================================================
+:: DETECCAO AUTOMATICA DO BANCO DE DADOS
+:: =======================================================
+echo Localizando executavel do MySQL/MariaDB...
+set "MYSQL_BIN="
+for /f "delims=" %%i in ('where mysql 2^>nul') do set "MYSQL_BIN=%%i"
+
+if not defined MYSQL_BIN (
+    for /d %%D in ("C:\SGBR\MariaDB*" "C:\SGBR\MySQL*" "C:\Program Files\MariaDB*" "C:\Program Files (x86)\MariaDB*" "C:\Program Files\MySQL*") do (
+        if exist "%%~D\bin\mysql.exe" set "MYSQL_BIN=%%~D\bin\mysql.exe"
+        if exist "%%~D\mysql.exe" set "MYSQL_BIN=%%~D\mysql.exe"
+    )
+)
+
+if not defined MYSQL_BIN (
+    echo [ERRO] mysql.exe nao foi encontrado para consultar as bases de dados.
+    pause
+    exit /b 1
+)
+
+echo Buscando banco de dados iniciando com '%PREFIXO_BANCO%'...
+set "NOME_BANCO="
+for /f "skip=1 delims=" %%B in ('"!MYSQL_BIN!" -h "%HOST_DB%" -P "%PORTA_DB%" -u "%USUARIO_DB%" -p"%SENHA_DB%" -N -e "SHOW DATABASES LIKE '%PREFIXO_BANCO%%';" 2^>nul') do (
+    set "NOME_BANCO=%%B"
+)
+
+if not defined NOME_BANCO (
+    echo [ERRO] Nenhum banco de dados com o prefixo '%PREFIXO_BANCO%' foi encontrado.
+    pause
+    exit /b 1
+)
+
 :MENU
 cls
 echo ===================================================
-echo       BACKUP SGBR SEM LOCKS NO DUMP
+echo        BACKUP SGBR SEM LOCKS NO DUMP
 echo ===================================================
-echo Servidor           : %HOST_DB%:%PORTA_DB%
-echo Banco de origem    : %NOME_BANCO%
-echo Nome para restaurar: %NOVO_BANCO%
+echo Servidor            : %HOST_DB%:%PORTA_DB%
+echo Banco encontrado    : %NOME_BANCO%
+echo Nome para restaurar : %NOVO_BANCO%
 echo ===================================================
 echo.
 echo [1] Gerar backup SQL sem LOCK TABLES
@@ -97,7 +131,7 @@ if not defined MYSQLDUMP_BIN (
 )
 
 set "DESTINO_BACKUP="
-for /f "delims=" %%I in ('powershell -NoProfile -Command "$d=(New-Object -ComObject Shell.Application).BrowseForFolder(0, 'Selecione a pasta para salvar o backup SQL', 0, 0); if ($d) { $d.Self.Path }"') do set "DESTINO_BACKUP=%%I"
+for /f "delims=" %%I in ('powershell -NoProfile -Command "$d=(New-Object -ComObject Shell.Application).BrowseForFolder(0, 'Selecione a pasta para salvar o backup SQL', 0, 0); if ($d) {$d.Self.Path }"') do set "DESTINO_BACKUP=%%I"
 
 if not defined DESTINO_BACKUP (
     echo [AVISO] Nenhuma pasta selecionada. Usando C:\Backup_SGBR
@@ -120,8 +154,6 @@ echo Arquivo: "!ARQUIVO_BACKUP!"
 echo.
 echo Exportando sem LOCK TABLES e sem ADD LOCKS...
 
-:: Nao usar --databases: assim o dump nao fixa o nome do banco original.
-:: As opcoes skip evitam instrucoes explicitas de LOCK/UNLOCK TABLES no dump.
 "!MYSQLDUMP_BIN!" -h "%HOST_DB%" -P "%PORTA_DB%" -u "%USUARIO_DB%" -p"%SENHA_DB%" --default-character-set=utf8mb4 --single-transaction --quick --skip-add-locks --skip-lock-tables --routines --events --triggers "%NOME_BANCO%" > "!TEMP_SQL!" 2> "!ERRO_LOG!"
 
 if errorlevel 1 (
@@ -145,8 +177,6 @@ if !TAMANHO! LEQ 0 (
     exit /b 1
 )
 
-:: Acrescenta USE com o novo nome, para importar no banco de destino.
-:: O banco de destino precisa existir antes da importacao no HeidiSQL.
 (
     echo -- Backup sem instrucoes LOCK TABLES / UNLOCK TABLES
     echo -- Origem: %NOME_BANCO%

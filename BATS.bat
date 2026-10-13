@@ -2,6 +2,25 @@
 title Gerenciador de Scripts - GitHub
 color 0A
 
+:: =======================================================
+:: VERIFICACAO DE SENHA
+:: =======================================================
+set "SENHA_CORRETA=123456"
+
+echo ===============================================
+echo         AUTENTICAÇÃO NECESSÁRIA
+echo ===============================================
+set /p "senha_digitada=Digite a senha para acessar o menu: "
+
+if not "%senha_digitada%"=="%SENHA_CORRETA%" (
+    echo.
+    echo [ERRO] Senha incorreta! O script será fechado.
+    timeout /t 3 >nul
+    exit /b
+)
+
+
+
 :: Eleva automaticamente para Administrador se necessário
 net session >nul 2>&1
 if %errorLevel% neq 0 (

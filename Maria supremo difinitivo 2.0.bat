@@ -10,9 +10,6 @@ set "PORTA_DB=3345"
 set "USUARIO_DB=root"
 set "SENHA_DB=masterkey"
 
-:: Prefixo do banco que o script vai procurar no servidor
-set "PREFIXO_BANCO=basesgmaster"
-
 :: Nome padrao para o banco restaurado
 set "NOVO_BANCO=basesgmaster_restaurado"
 
@@ -24,36 +21,35 @@ if errorlevel 1 (
 )
 
 :: =======================================================
-:: DETECCAO AUTOMATICA DO BANCO DE DADOS
+:: SELECAO DO ARQUIVO .SQL E LEITURA DO NOME DO BANCO
 :: =======================================================
-echo Localizando executavel do MySQL/MariaDB...
-set "MYSQL_BIN="
-for /f "delims=" %%i in ('where mysql 2^>nul') do set "MYSQL_BIN=%%i"
+echo Selecione o arquivo .sql na janela que vai abrir...
 
-if not defined MYSQL_BIN (
-    for /d %%D in ("C:\SGBR\MariaDB*" "C:\SGBR\MySQL*" "C:\Program Files\MariaDB*" "C:\Program Files (x86)\MariaDB*" "C:\Program Files\MySQL*") do (
-        if exist "%%~D\bin\mysql.exe" set "MYSQL_BIN=%%~D\bin\mysql.exe"
-        if exist "%%~D\mysql.exe" set "MYSQL_BIN=%%~D\mysql.exe"
-    )
-)
+set "ARQUIVO_CONFIG="
+for /f "delims=" %%I in ('powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.OpenFileDialog; $f.Filter = 'Arquivos SQL (*.sql)|*.sql|Todos os arquivos (*.*)|*.*'; if ($f.ShowDialog() -eq 'OK') {$f.FileName }"') do set "ARQUIVO_CONFIG=%%I"
 
-if not defined MYSQL_BIN (
-    echo [ERRO] mysql.exe nao foi encontrado para consultar as bases de dados.
+if not defined ARQUIVO_CONFIG (
+    echo [AVISO] Nenhum arquivo foi selecionado. O script sera encerrado.
     pause
     exit /b 1
 )
 
-echo Buscando banco de dados iniciando com '%PREFIXO_BANCO%'...
+echo Lendo o nome do banco de dados de dentro do arquivo: "!ARQUIVO_CONFIG!"
 set "NOME_BANCO="
-for /f "skip=1 delims=" %%B in ('"!MYSQL_BIN!" -h "%HOST_DB%" -P "%PORTA_DB%" -u "%USUARIO_DB%" -p"%SENHA_DB%" -N -e "SHOW DATABASES LIKE '%PREFIXO_BANCO%%';" 2^>nul') do (
-    set "NOME_BANCO=%%B"
+
+:: Lê o arquivo linha por linha procurando pelo texto indicativo e extraindo o nome do banco
+for /f "tokens=*" %%A in ('powershell -NoProfile -Command "Get-Content -Path '!ARQUIVO_CONFIG!' | Where-Object { $_ -match 'Nome do banco de dados MariaDB' } \vert{} ForEach-Object { if ($_ -match 'basesgmaster[a-zA-Z0-9_]*') { $Matches[0] } else {$_.Split(':')[-1].Trim() } }"') do (
+    set "NOME_BANCO=%%A"
 )
 
 if not defined NOME_BANCO (
-    echo [ERRO] Nenhum banco de dados com o prefixo '%PREFIXO_BANCO%' foi encontrado.
+    echo [ERRO] Nao foi possivel encontrar o nome do banco dentro do arquivo selecionado.
     pause
     exit /b 1
 )
+
+echo [OK] Banco identificado com sucesso: %NOME_BANCO%
+timeout /t 2 >nul
 
 :MENU
 cls
@@ -61,7 +57,7 @@ echo ===================================================
 echo        BACKUP SGBR SEM LOCKS NO DUMP
 echo ===================================================
 echo Servidor            : %HOST_DB%:%PORTA_DB%
-echo Banco encontrado    : %NOME_BANCO%
+echo Banco identificado  : %NOME_BANCO%
 echo Nome para restaurar : %NOVO_BANCO%
 echo ===================================================
 echo.
@@ -220,6 +216,7 @@ echo ===================================================
 echo VERIFICACAO / REPARO: %NOME_BANCO%
 echo ===================================================
 
+v
 set "MYSQLCHECK_BIN="
 for /f "delims=" %%i in ('where mysqlcheck 2^>nul') do set "MYSQLCHECK_BIN=%%i"
 

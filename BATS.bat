@@ -5,7 +5,7 @@ color 0A
 :: =======================================================
 :: VERIFICACAO DE SENHA
 :: =======================================================
-set "SENHA_CORRETA=sua_senha_aqui"
+set "SENHA_CORRETA=123456"
 
 echo ===============================================
 echo         AUTENTICACAO NECESSARIA

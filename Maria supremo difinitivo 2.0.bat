@@ -3,12 +3,15 @@ color 04
 setlocal EnableExtensions EnableDelayedExpansion
 
 :: =======================================================
-:: CONFIGURACOES SGBR / MARIADB / HEIDISQL
+:: CONFIGURACOES SGBR / MARIA DB / HEIDISQL
 :: =======================================================
 set "HOST_DB=localhost"
 set "PORTA_DB=3345"
 set "USUARIO_DB=root"
 set "SENHA_DB=masterkey"
+
+:: Nome do banco de dados de origem (Definido Manualmente)
+set "NOME_BANCO=basesgmaster25092026091648"
 
 :: Nome padrao para o banco restaurado
 set "NOVO_BANCO=basesgmaster_restaurado"
@@ -21,43 +24,15 @@ if errorlevel 1 (
 )
 
 :: =======================================================
-:: SELECAO DO ARQUIVO .SQL E LEITURA DO NOME DO BANCO
+:: MENU PRINCIPAL
 :: =======================================================
-echo Selecione o arquivo .sql na janela que vai abrir...
-
-set "ARQUIVO_CONFIG="
-for /f "delims=" %%I in ('powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.OpenFileDialog; $f.Filter = 'Arquivos SQL (*.sql)|*.sql|Todos os arquivos (*.*)|*.*'; if ($f.ShowDialog() -eq 'OK') {$f.FileName }"') do set "ARQUIVO_CONFIG=%%I"
-
-if not defined ARQUIVO_CONFIG (
-    echo [AVISO] Nenhum arquivo foi selecionado. O script sera encerrado.
-    pause
-    exit /b 1
-)
-
-echo Lendo o nome do banco de dados de dentro do arquivo: "!ARQUIVO_CONFIG!"
-set "NOME_BANCO="
-
-:: Lê o arquivo linha por linha procurando pelo texto indicativo e extraindo o nome do banco
-for /f "tokens=*" %%A in ('powershell -NoProfile -Command "Get-Content -Path '!ARQUIVO_CONFIG!' | Where-Object { $_ -match 'Nome do banco de dados MariaDB' } \vert{} ForEach-Object { if ($_ -match 'basesgmaster[a-zA-Z0-9_]*') { $Matches[0] } else {$_.Split(':')[-1].Trim() } }"') do (
-    set "NOME_BANCO=%%A"
-)
-
-if not defined NOME_BANCO (
-    echo [ERRO] Nao foi possivel encontrar o nome do banco dentro do arquivo selecionado.
-    pause
-    exit /b 1
-)
-
-echo [OK] Banco identificado com sucesso: %NOME_BANCO%
-timeout /t 2 >nul
-
 :MENU
 cls
 echo ===================================================
-echo        BACKUP SGBR SEM LOCKS NO DUMP
+echo         BACKUP SGBR SEM LOCKS NO DUMP
 echo ===================================================
-echo Servidor            : %HOST_DB%:%PORTA_DB%
-echo Banco identificado  : %NOME_BANCO%
+echo Servidor             : %HOST_DB%:%PORTA_DB%
+echo Banco identificado   : %NOME_BANCO%
 echo Nome para restaurar : %NOVO_BANCO%
 echo ===================================================
 echo.
@@ -213,29 +188,3 @@ exit /b 0
 :FUNC_REPARAR
 echo.
 echo ===================================================
-echo VERIFICACAO / REPARO: %NOME_BANCO%
-echo ===================================================
-
-v
-set "MYSQLCHECK_BIN="
-for /f "delims=" %%i in ('where mysqlcheck 2^>nul') do set "MYSQLCHECK_BIN=%%i"
-
-if not defined MYSQLCHECK_BIN (
-    for /d %%D in ("C:\SGBR\MariaDB*" "C:\SGBR\MySQL*" "C:\Program Files\MariaDB*" "C:\Program Files (x86)\MariaDB*" "C:\Program Files\MySQL*") do (
-        if exist "%%~D\bin\mysqlcheck.exe" set "MYSQLCHECK_BIN=%%~D\bin\mysqlcheck.exe"
-    )
-)
-
-if not defined MYSQLCHECK_BIN (
-    echo [ERRO] mysqlcheck.exe nao foi encontrado.
-    exit /b 1
-)
-
-echo Executando verificacao e reparo automatico...
-"!MYSQLCHECK_BIN!" -h "%HOST_DB%" -P "%PORTA_DB%" -u "%USUARIO_DB%" -p"%SENHA_DB%" --auto-repair --check "%NOME_BANCO%"
-if errorlevel 1 (
-    echo [AVISO] O comando retornou erro. Consulte as mensagens acima.
-    exit /b 1
-)
-echo [OK] Verificacao concluida.
-exit /b 0

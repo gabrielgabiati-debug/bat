@@ -3,7 +3,7 @@ setlocal enabledelayedexpansion
 
 rem ===== FIREBIRD 2.5 =====
 set "FB_BIN=C:\Program Files\Firebird\Firebird_2_5\bin"
-set "DB_PATH=localhost:C:\SGBR_Fire\MASTER\BD\BASESGMASTER_BET.FDB"
+set "DB_PATH=localhost:C:\SGBR_Fire\MASTER\BD\BASESGMASTER.DB"
 set "DB_USER=SYSDBA"
 set "DB_PASS=masterkey"
 

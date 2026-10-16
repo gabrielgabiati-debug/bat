@@ -2,31 +2,6 @@
 title Gerenciador de Scripts - GitHub
 color 0A
 
-:: =======================================================
-:: VERIFICACAO DE SENHA
-:: =======================================================
-set "SENHA_CORRETA=123456"
-
-echo ===============================================
-echo         AUTENTICACAO NECESSARIA
-echo ===============================================
-set /p "senha_digitada=Digite a senha para acessar o menu: "
-
-if not "%senha_digitada%"=="%SENHA_CORRETA%" (
-    echo.
-    echo [ERRO] Senha incorreta! Abrindo instrucoes...
-    
-    :: Tenta abrir o README.md local ou baixado
-    if exist "README.md" (
-        start "" "README.md"
-    ) else (
-        echo [AVISO] Arquivo README.md nao encontrado na pasta.
-    )
-    
-    timeout /t 3 >nul
-    exit /b
-)
-
 
 
 :: Eleva automaticamente para Administrador se necessário
